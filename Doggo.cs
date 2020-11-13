@@ -14,7 +14,7 @@ public class Doggo : UdonSharpBehaviour
     public Animator doggoAnimatorController;
     string currentAnimationName = "Idle";
     public float distanceBeforeDropBall = 3f;
-    public float distanceBeforePickup = 0.5f;
+    public float distanceBeforePickup = 1f;
     bool isRunningToBallThrower = false;
     Vector3 agentDestination;
     public Transform fakePlayerPosition;
