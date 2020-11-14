@@ -14,21 +14,34 @@ public class DogBall : UdonSharpBehaviour
     Vector3 dogMouthPosition;
     public Transform fakePlayerPosition;
     public Transform respawnPosition;
+    bool isDildo = false;
+    [UdonSynced] bool syncedIsDildo = false;
+    GameObject ballObject;
+    GameObject dildoObject;
 
     void Start()
     {
         rigidbody = GetComponent<Rigidbody>();
+        ballObject = transform.Find("ball").gameObject;
+        dildoObject = transform.Find("dildo").gameObject;
     }
 
     void OnDeserialization()
     {
         isPickedUp = syncedIsPickedUp;
+        isDildo = syncedIsDildo;
     }
 
     void OnPickup()
     {
         isPickedUp = true;
         syncedIsPickedUp = true;
+
+        // fix the dog running after a laggy ball
+        if (Networking.LocalPlayer != null)
+        {
+            Networking.SetOwner(Networking.LocalPlayer, doggo.gameObject);
+        }
     }
 
     void OnDrop()
@@ -39,12 +52,23 @@ public class DogBall : UdonSharpBehaviour
 
     void Update()
     {
-        if (isInDogMouth == false || dogMouthPosition == null || rigidbody == null)
+        if (rigidbody == null || dildoObject == null || ballObject == null)
         {
             return;
         }
 
-        rigidbody.MovePosition(dogMouthPosition);
+        dildoObject.SetActive(isDildo == true);
+        ballObject.SetActive(isDildo == false);
+
+        if (isInDogMouth == false || dogMouthPosition == null)
+        {
+            return;
+        }
+
+        if (isInDogMouth == false)
+        {
+            rigidbody.MovePosition(dogMouthPosition);
+        }
     }
 
     public void SetIsInDogMouth(bool newVal)
@@ -81,5 +105,11 @@ public class DogBall : UdonSharpBehaviour
     public void Respawn()
     {
         rigidbody.MovePosition(respawnPosition.position);
+    }
+
+    public void ToggleDildo()
+    {
+        isDildo = !isDildo;
+        syncedIsDildo = isDildo;
     }
 }
