@@ -47,36 +47,37 @@ public class Keypad : UdonSharpBehaviour
             return;
         }
 
-        if (currentValue.Length == maxLength)
+        if (currentValue.Length >= maxLength)
         {
             currentValue = buttonNumber.ToString();
-            return;
         }
-
-        currentValue = $"{currentValue}{buttonNumber.ToString()}";
-
-        if (currentValue.Length == maxLength)
+        else
         {
-            bool isSuccess = false;
+            currentValue = $"{currentValue}{buttonNumber.ToString()}";
 
-            switch (currentValue)
+            if (currentValue.Length >= maxLength)
             {
-                case "8008":
-                    ToggleToggleDildoButton();
-                    isSuccess = true;
-                    break;
-            }
+                bool isSuccess = false;
 
-            if (isSuccess)
-            {
-                currentValue = "SUCCESS";
-            }
-            else
-            {
-                currentValue = "FAIL";
-            }
+                switch (currentValue)
+                {
+                    case "8008":
+                        ToggleToggleDildoButton();
+                        isSuccess = true;
+                        break;
+                }
 
-            timeUntilClearDisplay = Time.time + 2f;
+                if (isSuccess)
+                {
+                    currentValue = "SUCCESS";
+                }
+                else
+                {
+                    currentValue = "FAIL";
+                }
+
+                timeUntilClearDisplay = Time.time + 2f;
+            }
         }
 
         syncedCurrentValue = currentValue;

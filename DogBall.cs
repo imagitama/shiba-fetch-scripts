@@ -65,7 +65,7 @@ public class DogBall : UdonSharpBehaviour
             return;
         }
 
-        if (isInDogMouth == false)
+        if (isInDogMouth == true)
         {
             rigidbody.MovePosition(dogMouthPosition);
         }
