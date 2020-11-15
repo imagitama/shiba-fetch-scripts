@@ -11,15 +11,11 @@ public class Doggo : UdonSharpBehaviour
     Transform shibaAvatarTransform;
     public DogBall dogBall;
     public Animator doggoAnimatorController;
-    string currentAnimationName = "Idle";
     float distanceBeforeDropBall = 3f;
     float distanceBeforePickup = 0.1f;
-    bool isRunningToBallThrower = false;
     Vector3 agentDestination;
     public Transform fakePlayerPosition;
-    bool isPickingUpBall = false;
     float timeUntilRunToOwner;
-    bool isWaitingForNewThrow = false;
     public Transform respawnPosition;
     bool isPeanut = false;
     [UdonSynced] bool syncedIsPeanut = false;
@@ -31,13 +27,19 @@ public class Doggo : UdonSharpBehaviour
     public Renderer tailRenderer;
     public GameObject bandana;
     public GameObject collar;
-    bool isCommittingSuicide = false;
-    float distanceUntilRespawn = -100f;
-    float distanceBeforeYeet = 0.2f;
-    Vector3 suicideStartPosition;
-    Vector3 suicideEndPosition;
     public Transform tongue;
     float delayWhilePickingUpBall = 1f;
+    public AudioSource barkSound;
+    public AudioSource pantingSound;
+    public AudioSource runningSound;
+    bool isAudioEnabled = true;
+    // int is much better performance for sync than string
+    int currentState;
+    [UdonSynced] int syncedCurrentState;
+    const int stateWaitingForThrow = 0;
+    const int stateRunning = 1;
+    const int statePickingUpBall = 2;
+    const int stateRunningToThrower = 3;
 
     void Start()
     {
@@ -73,85 +75,85 @@ public class Doggo : UdonSharpBehaviour
             collar.SetActive(true);
         }
 
+        if (!GetIsOwner())
+        {
+            return;
+        }
+
+        // doesnt work in Start()
+        // if (currentState == null)
+        // {
+        //     SetState(stateRunning);
+        // }
+
         Vector3 ballThrowerPositionFlat = GetBallThrowerPosition();
         // ballThrowerPositionFlat.y = 0;
 
         Vector3 dogPallPositionFlat = dogBall.transform.position;
         // dogPallPositionFlat.y = 0;
 
-        if (Vector3.Distance(ballThrowerPositionFlat, dogPallPositionFlat) > distanceBeforeDropBall)
+        if (currentState == stateWaitingForThrow && Vector3.Distance(ballThrowerPositionFlat, dogPallPositionFlat) > distanceBeforeDropBall)
         {
-            isWaitingForNewThrow = false;
+            Debug.Log("[Doggo] Owner has thrown it! Running!");
+            SetState(stateRunning);
         }
 
-        if (isRunningToBallThrower)
+        if (currentState == stateRunningToThrower)
         {
             agentDestination = ballThrowerPositionFlat;
 
-            if (GetIsOwner() && myNavAgent.enabled)
-            {
+            //Debug.Log("[AGENT] Moving to ball thrower...");
 
-                //Debug.Log("[AGENT] Moving to ball thrower...");
-
-                myNavAgent.isStopped = false;
-                myNavAgent.SetDestination(agentDestination);
-            }
+            myNavAgent.isStopped = false;
+            myNavAgent.SetDestination(agentDestination);
 
             float distanceBetweenDogAndBallOwner = Vector3.Distance(transform.position, ballThrowerPositionFlat);
 
             if (distanceBetweenDogAndBallOwner < distanceBeforeDropBall)
             {
-                //Debug.Log("[DOGGO] Drop for owner");
-                isRunningToBallThrower = false;
-                isWaitingForNewThrow = true;
+                Debug.Log("[Doggo] Giving ball to owner");
+
+                SetState(stateWaitingForThrow);
 
                 dogBall.SetIsInDogMouth(false);
 
-                if (GetIsOwner())
+                if (Networking.LocalPlayer == null)
                 {
-                    if (Networking.LocalPlayer == null)
-                    {
-                        dogBall.TeleportToOwner();
-                    }
-                    else
-                    {
-                        dogBall.SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.Owner, "TeleportToOwner");
-                    }
+                    dogBall.TeleportToOwner();
+                }
+                else
+                {
+                    dogBall.SendCustomNetworkEvent(VRC.Udon.Common.Interfaces.NetworkEventTarget.Owner, "TeleportToOwner");
                 }
             }
         }
-        else if (isWaitingForNewThrow)
+        else if (currentState == stateWaitingForThrow || currentState == statePickingUpBall)
         {
-            if (GetIsOwner())
-            {
-                //Debug.Log("[AGENT] Stopped - waiting for new throw");
-                myNavAgent.isStopped = true;
-            }
+            //Debug.Log("[AGENT] Stopped - waiting for new throw");
+            myNavAgent.isStopped = true;
         }
         else
         {
             agentDestination = dogBall.transform.position;
 
-            if (GetIsOwner() && myNavAgent.enabled)
-            {
-                myNavAgent.isStopped = false;
-                myNavAgent.SetDestination(agentDestination);
-            }
+            myNavAgent.isStopped = false;
+            myNavAgent.SetDestination(agentDestination);
 
             Vector3 doggoPosition = transform.position;
             // doggoPosition.y = 0;
 
             float distanceBetweenDogAndBall = Vector3.Distance(doggoPosition, dogPallPositionFlat);
 
-            if (isPickingUpBall == false && distanceBetweenDogAndBall < distanceBeforePickup)
+            if (currentState != statePickingUpBall && distanceBetweenDogAndBall < distanceBeforePickup)
             {
-                //Debug.Log("Picking up ball");
-                isPickingUpBall = true;
+                Debug.Log("[Doggo] Picking up ball");
+                SetState(statePickingUpBall);
+
                 timeUntilRunToOwner = Time.time + delayWhilePickingUpBall;
             }
         }
 
-        if (isPickingUpBall || isRunningToBallThrower)
+        if (currentState == statePickingUpBall || currentState == stateRunningToThrower)
         {
             dogBall.SetIsInDogMouth(true);
         }
@@ -160,66 +162,29 @@ public class Doggo : UdonSharpBehaviour
             dogBall.SetIsInDogMouth(false);
         }
 
-        if (isPickingUpBall)
+        if (currentState == statePickingUpBall)
         {
             if (timeUntilRunToOwner != null && Time.time > timeUntilRunToOwner)
             {
-                //Debug.Log("Running to thrower with ball");
-                isPickingUpBall = false;
-                isRunningToBallThrower = true;
+                Debug.Log("[Doggo] Running to thrower with ball");
+                SetState(stateRunningToThrower);
             }
             else
             {
-                if (GetIsOwner())
-                {
-                    //Debug.Log("Picking up ball");
-                    myNavAgent.isStopped = true;
-                }
+                myNavAgent.isStopped = true;
             }
         }
 
-        if (isWaitingForNewThrow || isPickingUpBall)
+        NavMeshHit hit;
+
+        if (NavMesh.FindClosestEdge(transform.position, out hit, NavMesh.AllAreas))
         {
-            if (currentAnimationName != "Idle")
-            {
-                currentAnimationName = "Idle";
-                doggoAnimatorController.SetInteger("State", 0);
-            }
-        }
-        else
-        {
-            if (currentAnimationName != "Running")
-            {
-                currentAnimationName = "Running";
-                doggoAnimatorController.SetInteger("State", 1);
-            }
-        }
+            Debug.DrawRay(hit.position, Vector3.up, Color.blue);
 
-        if (GetIsOwner())
-        {
-            NavMeshHit hit;
-            if (NavMesh.FindClosestEdge(transform.position, out hit, NavMesh.AllAreas))
+            if (currentState != stateWaitingForThrow && hit.distance < 0.1f)
             {
-                // if (isCommittingSuicide == false && hit.distance < distanceBeforeYeet)
-                // {
-                //     Debug.Log("[Doggo] Committing suicide");
-                //     isCommittingSuicide = true;
-                //     myNavAgent.enabled = false;
-                //     suicideStartPosition = transform.position;
-                //     suicideEndPosition = transform.forward * 10f;
-                // }
-
-                Debug.DrawRay(hit.position, Vector3.up, Color.blue);
-            }
-
-            // if (isCommittingSuicide)
-            // {
-            //     MoveTowardsDeath();
-            // }
-
-            if (transform.position.y < distanceUntilRespawn)
-            {
-                Respawn();
+                Debug.Log("[Doggo] Waiting for throw pls");
+                SetState(stateWaitingForThrow);
             }
         }
 
@@ -231,26 +196,30 @@ public class Doggo : UdonSharpBehaviour
     void OnDeserialization()
     {
         isPeanut = syncedIsPeanut;
+
+        if (syncedCurrentState != currentState)
+        {
+            currentState = syncedCurrentState;
+
+            PlayAudioBasedOnState();
+            PlayAnimationBasedOnState();
+        }
     }
 
-    void MoveTowardsDeath()
+    void SetState(int newState)
     {
-        if (suicideStartPosition == null)
+        if (newState == currentState)
         {
             return;
         }
 
-        float speed = 1f;
-        float arcHeight = 10f;
-        float x0 = suicideStartPosition.x;
-        float x1 = suicideEndPosition.x;
-        float dist = x1 - x0;
-        float nextX = Mathf.MoveTowards(transform.position.x, x1, speed * Time.deltaTime);
-        float baseY = Mathf.Lerp(suicideStartPosition.y, suicideEndPosition.y, (nextX - x0) / dist);
-        float arc = arcHeight * (nextX - x0) * (nextX - x1) / (-0.25f * dist * dist);
-        Vector3 nextPos = new Vector3(nextX, baseY + arc, transform.position.z);
+        Debug.Log("[Doggo] State " + newState.ToString());
 
-        transform.position = nextPos;
+        currentState = newState;
+        syncedCurrentState = currentState;
+
+        PlayAudioBasedOnState();
+        PlayAnimationBasedOnState();
     }
 
     void FaceTarget()
@@ -291,15 +260,8 @@ public class Doggo : UdonSharpBehaviour
     {
         Debug.Log("[Doggo] Respawn");
 
-        // isCommittingSuicide = false;
-
         // always enable it in case owner switches when it is suiciding
         myNavAgent.enabled = true;
-
-        // if (GetIsOwner())
-        // {
-        //     isCommittingSuicide = false;
-        // }
 
         transform.position = respawnPosition.position;
     }
@@ -313,5 +275,58 @@ public class Doggo : UdonSharpBehaviour
     public Vector3 GetMouthPosition()
     {
         return tongue.position;
+    }
+
+    public void ToggleAudio()
+    {
+        isAudioEnabled = !isAudioEnabled;
+
+        PlayAudioBasedOnState();
+    }
+
+    void PlayAudioBasedOnState()
+    {
+        if (!isAudioEnabled)
+        {
+            runningSound.Stop();
+            pantingSound.Stop();
+            barkSound.Stop();
+            return;
+        }
+
+        switch (currentState)
+        {
+            case stateWaitingForThrow:
+                pantingSound.Play();
+                runningSound.Pause();
+                barkSound.Play();
+                break;
+            case statePickingUpBall:
+                pantingSound.Play();
+                runningSound.Pause();
+                barkSound.Stop();
+                break;
+            case stateRunning:
+            case stateRunningToThrower:
+                pantingSound.Pause();
+                runningSound.Play();
+                barkSound.Stop();
+                break;
+        }
+    }
+
+    void PlayAnimationBasedOnState()
+    {
+        switch (currentState)
+        {
+            case stateWaitingForThrow:
+            case statePickingUpBall:
+                doggoAnimatorController.SetInteger("State", 0);
+                break;
+            case stateRunning:
+            case stateRunningToThrower:
+                doggoAnimatorController.SetInteger("State", 1);
+                break;
+        }
     }
 }
