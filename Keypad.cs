@@ -15,11 +15,9 @@ public class Keypad : UdonSharpBehaviour
     public GameObject ToggleDildoButton;
     bool isToggleDildoButtonVisible = false;
     [UdonSynced] bool syncedIsToggleDildoButtonVisible = false;
-
-    void Start()
-    {
-
-    }
+    public GameObject TogglePeanutButton;
+    bool isTogglePeanutButtonVisible = false;
+    [UdonSynced] bool syncedIsTogglePeanutButtonVisible = false;
 
     void Update()
     {
@@ -29,15 +27,18 @@ public class Keypad : UdonSharpBehaviour
         {
             timeUntilClearDisplay = 0;
             currentValue = "";
+            syncedCurrentValue = "";
         }
 
         ToggleDildoButton.SetActive(isToggleDildoButtonVisible);
+        TogglePeanutButton.SetActive(isTogglePeanutButtonVisible);
     }
 
     void OnDeserialization()
     {
         currentValue = syncedCurrentValue;
         isToggleDildoButtonVisible = syncedIsToggleDildoButtonVisible;
+        isTogglePeanutButtonVisible = syncedIsTogglePeanutButtonVisible;
     }
 
     public void OnPressButton(int buttonNumber)
@@ -65,6 +66,10 @@ public class Keypad : UdonSharpBehaviour
                         ToggleToggleDildoButton();
                         isSuccess = true;
                         break;
+                    case "1756":
+                        ToggleTogglePeanutButton();
+                        isSuccess = true;
+                        break;
                 }
 
                 if (isSuccess)
@@ -87,5 +92,11 @@ public class Keypad : UdonSharpBehaviour
     {
         isToggleDildoButtonVisible = !isToggleDildoButtonVisible;
         syncedIsToggleDildoButtonVisible = isToggleDildoButtonVisible;
+    }
+
+    void ToggleTogglePeanutButton()
+    {
+        isTogglePeanutButtonVisible = !isTogglePeanutButtonVisible;
+        syncedIsTogglePeanutButtonVisible = isTogglePeanutButtonVisible;
     }
 }

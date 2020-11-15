@@ -8,13 +8,12 @@ using VRC.Udon;
 public class Doggo : UdonSharpBehaviour
 {
     NavMeshAgent myNavAgent;
-    // float timeUntilNextMovement = 0;
     Transform shibaAvatarTransform;
     public DogBall dogBall;
     public Animator doggoAnimatorController;
     string currentAnimationName = "Idle";
-    public float distanceBeforeDropBall = 3f;
-    public float distanceBeforePickup = 1f;
+    float distanceBeforeDropBall = 3f;
+    float distanceBeforePickup = 0.1f;
     bool isRunningToBallThrower = false;
     Vector3 agentDestination;
     public Transform fakePlayerPosition;
@@ -22,6 +21,23 @@ public class Doggo : UdonSharpBehaviour
     float timeUntilRunToOwner;
     bool isWaitingForNewThrow = false;
     public Transform respawnPosition;
+    bool isPeanut = false;
+    [UdonSynced] bool syncedIsPeanut = false;
+    public Material defaultShibaBodyMaterial;
+    public Material defaultShibaTailMaterial;
+    public Material peanutShibaBodyMaterial;
+    public Material peanutShibaTailMaterial;
+    public Renderer shibaRenderer;
+    public Renderer tailRenderer;
+    public GameObject bandana;
+    public GameObject collar;
+    bool isCommittingSuicide = false;
+    float distanceUntilRespawn = -100f;
+    float distanceBeforeYeet = 0.2f;
+    Vector3 suicideStartPosition;
+    Vector3 suicideEndPosition;
+    public Transform tongue;
+    float delayWhilePickingUpBall = 1f;
 
     void Start()
     {
@@ -31,9 +47,30 @@ public class Doggo : UdonSharpBehaviour
 
     void Update()
     {
-        if (myNavAgent == null)
+        if (myNavAgent == null || shibaRenderer == null)
         {
             return;
+        }
+
+        if (isPeanut)
+        {
+            Material[] newMaterials = shibaRenderer.materials;
+            newMaterials[0] = peanutShibaBodyMaterial;
+            newMaterials[1] = peanutShibaBodyMaterial;
+            shibaRenderer.materials = newMaterials;
+            tailRenderer.material = peanutShibaTailMaterial;
+            bandana.SetActive(true);
+            collar.SetActive(false);
+        }
+        else
+        {
+            Material[] newMaterials = shibaRenderer.materials;
+            newMaterials[0] = defaultShibaBodyMaterial;
+            newMaterials[1] = defaultShibaBodyMaterial;
+            shibaRenderer.materials = newMaterials;
+            tailRenderer.material = defaultShibaTailMaterial;
+            bandana.SetActive(false);
+            collar.SetActive(true);
         }
 
         Vector3 ballThrowerPositionFlat = GetBallThrowerPosition();
@@ -51,7 +88,7 @@ public class Doggo : UdonSharpBehaviour
         {
             agentDestination = ballThrowerPositionFlat;
 
-            if (GetIsOwner())
+            if (GetIsOwner() && myNavAgent.enabled)
             {
 
                 //Debug.Log("[AGENT] Moving to ball thrower...");
@@ -95,7 +132,7 @@ public class Doggo : UdonSharpBehaviour
         {
             agentDestination = dogBall.transform.position;
 
-            if (GetIsOwner())
+            if (GetIsOwner() && myNavAgent.enabled)
             {
                 myNavAgent.isStopped = false;
                 myNavAgent.SetDestination(agentDestination);
@@ -110,7 +147,7 @@ public class Doggo : UdonSharpBehaviour
             {
                 //Debug.Log("Picking up ball");
                 isPickingUpBall = true;
-                timeUntilRunToOwner = Time.time + 2f;
+                timeUntilRunToOwner = Time.time + delayWhilePickingUpBall;
             }
         }
 
@@ -158,7 +195,62 @@ public class Doggo : UdonSharpBehaviour
             }
         }
 
+        if (GetIsOwner())
+        {
+            NavMeshHit hit;
+            if (NavMesh.FindClosestEdge(transform.position, out hit, NavMesh.AllAreas))
+            {
+                // if (isCommittingSuicide == false && hit.distance < distanceBeforeYeet)
+                // {
+                //     Debug.Log("[Doggo] Committing suicide");
+                //     isCommittingSuicide = true;
+                //     myNavAgent.enabled = false;
+                //     suicideStartPosition = transform.position;
+                //     suicideEndPosition = transform.forward * 10f;
+                // }
+
+                Debug.DrawRay(hit.position, Vector3.up, Color.blue);
+            }
+
+            // if (isCommittingSuicide)
+            // {
+            //     MoveTowardsDeath();
+            // }
+
+            if (transform.position.y < distanceUntilRespawn)
+            {
+                Respawn();
+            }
+        }
+
+        Debug.DrawRay(agentDestination, Vector3.up, Color.red);
+
         FaceTarget();
+    }
+
+    void OnDeserialization()
+    {
+        isPeanut = syncedIsPeanut;
+    }
+
+    void MoveTowardsDeath()
+    {
+        if (suicideStartPosition == null)
+        {
+            return;
+        }
+
+        float speed = 1f;
+        float arcHeight = 10f;
+        float x0 = suicideStartPosition.x;
+        float x1 = suicideEndPosition.x;
+        float dist = x1 - x0;
+        float nextX = Mathf.MoveTowards(transform.position.x, x1, speed * Time.deltaTime);
+        float baseY = Mathf.Lerp(suicideStartPosition.y, suicideEndPosition.y, (nextX - x0) / dist);
+        float arc = arcHeight * (nextX - x0) * (nextX - x1) / (-0.25f * dist * dist);
+        Vector3 nextPos = new Vector3(nextX, baseY + arc, transform.position.z);
+
+        transform.position = nextPos;
     }
 
     void FaceTarget()
@@ -197,19 +289,29 @@ public class Doggo : UdonSharpBehaviour
 
     public void Respawn()
     {
+        Debug.Log("[Doggo] Respawn");
+
+        // isCommittingSuicide = false;
+
+        // always enable it in case owner switches when it is suiciding
+        myNavAgent.enabled = true;
+
+        // if (GetIsOwner())
+        // {
+        //     isCommittingSuicide = false;
+        // }
+
         transform.position = respawnPosition.position;
     }
 
-    // public Vector3 GetRandomNavmeshLocation(float radius)
-    // {
-    //     Vector3 randomDirection = Random.insideUnitSphere * radius;
-    //     randomDirection += transform.position;
-    //     UnityEngine.AI.NavMeshHit hit;
-    //     Vector3 finalPosition = Vector3.zero;
-    //     if (UnityEngine.AI.NavMesh.SamplePosition(randomDirection, out hit, radius, 1))
-    //     {
-    //         finalPosition = hit.position;
-    //     }
-    //     return finalPosition;
-    // }
+    public void ToggleIsPeanut()
+    {
+        isPeanut = !isPeanut;
+        syncedIsPeanut = isPeanut;
+    }
+
+    public Vector3 GetMouthPosition()
+    {
+        return tongue.position;
+    }
 }

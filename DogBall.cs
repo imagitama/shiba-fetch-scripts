@@ -74,7 +74,7 @@ public class DogBall : UdonSharpBehaviour
     public void SetIsInDogMouth(bool newVal)
     {
         isInDogMouth = newVal;
-        dogMouthPosition = doggo.transform.position;
+        dogMouthPosition = doggo.GetMouthPosition();
     }
 
     Vector3 GetOwnerPosition()
@@ -91,10 +91,12 @@ public class DogBall : UdonSharpBehaviour
     {
         Vector3 ownerPosition = GetOwnerPosition();
 
-        // fix weird physics bug where it falls through map and respawns
-        ownerPosition.y = ownerPosition.y + 2;
+        Vector3 inbetweenPosition = Vector3.Lerp(transform.position, ownerPosition, 0.5f);
 
-        rigidbody.MovePosition(ownerPosition);
+        // fix weird physics bug where it falls through map and respawns
+        inbetweenPosition.y = inbetweenPosition.y + 1f;
+
+        rigidbody.MovePosition(inbetweenPosition);
     }
 
     bool GetIsPickedUp()
