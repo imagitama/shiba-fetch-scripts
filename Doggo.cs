@@ -40,6 +40,8 @@ public class Doggo : UdonSharpBehaviour
     const int stateRunning = 1;
     const int statePickingUpBall = 2;
     const int stateRunningToThrower = 3;
+    public Transform head;
+    public Transform[] eyes;
 
     void Start()
     {
@@ -193,6 +195,21 @@ public class Doggo : UdonSharpBehaviour
         FaceTarget();
     }
 
+    void LateUpdate()
+    {
+        if (currentState == stateWaitingForThrow)
+        {
+            Vector3 playerHead = GetBallThrowerHeadPosition();
+
+            head.LookAt(playerHead);
+
+            foreach (Transform eye in eyes)
+            {
+                eye.LookAt(playerHead);
+            }
+        }
+    }
+
     void OnDeserialization()
     {
         isPeanut = syncedIsPeanut;
@@ -235,6 +252,18 @@ public class Doggo : UdonSharpBehaviour
         float strength = 2f;
         float str = Mathf.Min(strength * Time.deltaTime, 1);
         shibaAvatarTransform.rotation = Quaternion.Lerp(shibaAvatarTransform.rotation, targetRotation, str);
+    }
+
+    Vector3 GetBallThrowerHeadPosition()
+    {
+        if (Networking.LocalPlayer == null)
+        {
+            Vector3 fakePosition = fakePlayerPosition.position;
+            fakePosition.y = fakePosition.y + 2;
+            return fakePosition;
+        }
+
+        return Networking.GetOwner(dogBall.gameObject).GetBonePosition(HumanBodyBones.Head);
     }
 
     Vector3 GetBallThrowerPosition()
