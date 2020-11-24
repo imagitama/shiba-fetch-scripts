@@ -18,6 +18,9 @@ public class Keypad : UdonSharpBehaviour
     public GameObject TogglePeanutButton;
     bool isTogglePeanutButtonVisible = false;
     [UdonSynced] bool syncedIsTogglePeanutButtonVisible = false;
+    bool isScaleSliderVisible = false;
+    [UdonSynced] bool syncedIsScaleSliderVisible = false;
+    public GameObject scaleSlider;
 
     void Update()
     {
@@ -32,6 +35,7 @@ public class Keypad : UdonSharpBehaviour
 
         ToggleDildoButton.SetActive(isToggleDildoButtonVisible);
         TogglePeanutButton.SetActive(isTogglePeanutButtonVisible);
+        scaleSlider.SetActive(isScaleSliderVisible);
     }
 
     void OnDeserialization()
@@ -39,6 +43,7 @@ public class Keypad : UdonSharpBehaviour
         currentValue = syncedCurrentValue;
         isToggleDildoButtonVisible = syncedIsToggleDildoButtonVisible;
         isTogglePeanutButtonVisible = syncedIsTogglePeanutButtonVisible;
+        isScaleSliderVisible = syncedIsScaleSliderVisible;
     }
 
     public void OnPressButton(int buttonNumber)
@@ -70,6 +75,10 @@ public class Keypad : UdonSharpBehaviour
                         ToggleTogglePeanutButton();
                         isSuccess = true;
                         break;
+                    case "1234":
+                        ToggleScaleSlider();
+                        isSuccess = true;
+                        break;
                 }
 
                 if (isSuccess)
@@ -98,5 +107,11 @@ public class Keypad : UdonSharpBehaviour
     {
         isTogglePeanutButtonVisible = !isTogglePeanutButtonVisible;
         syncedIsTogglePeanutButtonVisible = isTogglePeanutButtonVisible;
+    }
+
+    void ToggleScaleSlider()
+    {
+        isScaleSliderVisible = !isScaleSliderVisible;
+        syncedIsScaleSliderVisible = isScaleSliderVisible;
     }
 }

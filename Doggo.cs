@@ -42,6 +42,8 @@ public class Doggo : UdonSharpBehaviour
     const int stateRunningToThrower = 3;
     public Transform head;
     public Transform[] eyes;
+    float scale = 0.4f;
+    [UdonSynced] float syncedScale = 0.4f;
 
     void Start()
     {
@@ -76,6 +78,8 @@ public class Doggo : UdonSharpBehaviour
             bandana.SetActive(false);
             collar.SetActive(true);
         }
+
+        shibaAvatarTransform.localScale = new Vector3(scale, scale, scale);
 
         if (!GetIsOwner())
         {
@@ -213,6 +217,7 @@ public class Doggo : UdonSharpBehaviour
     void OnDeserialization()
     {
         isPeanut = syncedIsPeanut;
+        scale = syncedScale;
 
         if (syncedCurrentState != currentState)
         {
@@ -357,5 +362,12 @@ public class Doggo : UdonSharpBehaviour
                 doggoAnimatorController.SetInteger("State", 1);
                 break;
         }
+    }
+
+    public void SetScale(float newScale)
+    {
+        Debug.Log("[Doggo] Set scale " + newScale.ToString());
+        scale = newScale;
+        syncedScale = scale;
     }
 }
