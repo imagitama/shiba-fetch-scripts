@@ -44,6 +44,13 @@ public class Doggo : UdonSharpBehaviour
     public Transform[] eyes;
     float scale = 0.4f;
     [UdonSynced] float syncedScale = 0.4f;
+    const string animationBodyParameterName = "BodyState";
+    const int animationBodyStateIdle = 0;
+    const int animationBodyStateRun = 1;
+    const string animationMouthParameterName = "MouthState";
+    const int animationMouthStateIdle = 0;
+    const int animationMouthStatePant = 1;
+    const int animationMouthStateBark = 2;
 
     void Start()
     {
@@ -201,11 +208,44 @@ public class Doggo : UdonSharpBehaviour
 
     void LateUpdate()
     {
+        if (shibaAvatarTransform == null)
+        {
+            return;
+        }
+
         if (currentState == stateWaitingForThrow)
         {
             Vector3 playerHead = GetBallThrowerHeadPosition();
 
             head.LookAt(playerHead);
+
+            float parentRotation = shibaAvatarTransform.eulerAngles.y;
+            float headRotation = head.eulerAngles.y;
+
+            float clampedAngleY = headRotation - parentRotation;
+
+            if (clampedAngleY < 0)
+            {
+                clampedAngleY = 360 + clampedAngleY;
+            }
+
+            if (clampedAngleY >= 180 && clampedAngleY <= 315)
+            {
+                clampedAngleY = 315;
+            }
+            else if (clampedAngleY >= 45 && clampedAngleY <= 315)
+            {
+                clampedAngleY = 45;
+            }
+
+            clampedAngleY = clampedAngleY + parentRotation;
+
+            if (clampedAngleY > 360)
+            {
+                clampedAngleY = clampedAngleY - 360;
+            }
+
+            head.eulerAngles = new Vector3(head.eulerAngles.x, clampedAngleY, head.eulerAngles.z);
 
             foreach (Transform eye in eyes)
             {
@@ -355,11 +395,27 @@ public class Doggo : UdonSharpBehaviour
         {
             case stateWaitingForThrow:
             case statePickingUpBall:
-                doggoAnimatorController.SetInteger("State", 0);
+                doggoAnimatorController.SetInteger(animationBodyParameterName, animationBodyStateIdle);
                 break;
             case stateRunning:
             case stateRunningToThrower:
-                doggoAnimatorController.SetInteger("State", 1);
+                doggoAnimatorController.SetInteger(animationBodyParameterName, animationBodyStateRun);
+                break;
+        }
+
+        switch (currentState)
+        {
+            case stateWaitingForThrow:
+                doggoAnimatorController.SetInteger(animationMouthParameterName, animationMouthStateBark);
+                break;
+
+            case stateRunning:
+            case stateRunningToThrower:
+                doggoAnimatorController.SetInteger(animationMouthParameterName, animationMouthStatePant);
+                break;
+
+            default:
+                doggoAnimatorController.SetInteger(animationMouthParameterName, animationMouthStateIdle);
                 break;
         }
     }
